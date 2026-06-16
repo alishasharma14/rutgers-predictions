@@ -20,8 +20,8 @@ const dmMono = DM_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'ScarletPicks',
-  description: 'Rutgers Virtual Prediction Market',
+  title: 'UPick',
+  description: 'University Picks — Rutgers Virtual Prediction Market',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -35,11 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* Brand */}
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full bg-scarlet flex items-center justify-center text-white text-sm font-semibold shrink-0">
-                    S
+                    U
                   </div>
                   <span className="font-semibold text-base leading-none">
-                    <span className="text-scarlet">Scarlet</span>
-                    <span className="text-white">Picks</span>
+                    <span className="text-scarlet">U</span>
+                    <span className="text-white">Pick</span>
                   </span>
                 </div>
 

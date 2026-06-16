@@ -25,7 +25,7 @@ export default async function LeaderboardPage() {
     <div className="bg-white border border-black/8 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-black/8 flex items-center justify-between">
-        <span className="text-base font-semibold">Scarlet Knight standings</span>
+        <span className="text-base font-semibold">UPick standings</span>
         <span className="text-[12px] text-faint">Ranked by ROI · min 3 bets</span>
       </div>
 
