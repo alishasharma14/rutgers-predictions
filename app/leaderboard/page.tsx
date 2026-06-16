@@ -8,7 +8,7 @@ const RANK_STYLE: Record<number, string> = {
 
 export default async function LeaderboardPage() {
   const [{ data: users }, { data: settledWagers }] = await Promise.all([
-    supabase.from('users').select('id, email, points'),
+    supabase.from('users').select('id, email, points, bet_pnl'),
     supabase.from('wagers').select('user_id').eq('settled', true),
   ])
 
@@ -19,7 +19,7 @@ export default async function LeaderboardPage() {
 
   const ranked = (users ?? [])
     .filter(u => (wagerCounts[u.id] ?? 0) >= 3)
-    .sort((a, b) => b.points - a.points)
+    .sort((a, b) => b.bet_pnl - a.bet_pnl)
 
   return (
     <div className="bg-white border border-black/8 rounded-xl overflow-hidden">
@@ -35,7 +35,7 @@ export default async function LeaderboardPage() {
         </div>
       ) : (
         ranked.map((user, i) => {
-          const roi = ((user.points - 1000) / 1000) * 100
+          const roi = (user.bet_pnl / 1000) * 100
           const positive = roi >= 0
           const rankCls = RANK_STYLE[i] ?? 'text-muted'
           const initial = user.email[0].toUpperCase()

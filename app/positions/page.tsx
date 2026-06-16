@@ -7,7 +7,7 @@ type Market = { question: string; status: string; resolution: string | null }
 export default async function PositionsPage() {
   const { data: wagers } = await supabase
     .from('wagers')
-    .select('id, choice, amount, settled, markets(question, status, resolution)')
+    .select('id, choice, amount, settled, payout, markets(question, status, resolution)')
     .eq('user_id', PLACEHOLDER_USER_ID)
     .order('created_at', { ascending: false })
 
@@ -28,8 +28,9 @@ export default async function PositionsPage() {
             const statusLabel = w.settled ? (won ? '✓ Won' : '✗ Lost') : '● Open'
             const statusCls   = w.settled ? (won ? 'text-yes' : 'text-no') : 'text-blue'
             const ptsCls      = w.settled ? (won ? 'text-yes' : 'text-no') : ''
+            const profit      = (w.payout ?? 0) - w.amount
             const ptsLabel    = w.settled
-              ? `${won ? '+' : '-'}${w.amount.toLocaleString()} pts`
+              ? `${profit >= 0 ? '+' : ''}${profit.toLocaleString()} pts`
               : `${w.amount.toLocaleString()} pts`
 
             return (

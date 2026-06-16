@@ -78,6 +78,7 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
       market_id: id,
       choice: selected,
       amount,
+      odds_at_bet: pct,
     })
     setLoading(false)
     if (error) {

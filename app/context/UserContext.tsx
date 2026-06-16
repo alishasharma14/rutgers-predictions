@@ -31,16 +31,17 @@ export const useUser = () => useContext(UserContext)
 export function UserProvider({ children }: { children: ReactNode }) {
   const [points, setPoints] = useState(START_POINTS)
   const [betsPlaced, setBetsPlaced] = useState(0)
-  const [betPnL, setBetPnL] = useState(0)  // 0 until settlement is wired up
+  const [betPnL, setBetPnL] = useState(0)  // loaded from users.bet_pnl, updated server-side on settlement
 
   useEffect(() => {
     supabase
       .from('users')
-      .select('points')
+      .select('points, bet_pnl')
       .eq('id', PLACEHOLDER_USER_ID)
       .single()
       .then(({ data }) => {
         if (data?.points != null) setPoints(data.points)
+        if (data?.bet_pnl != null) setBetPnL(data.bet_pnl)
       })
 
     supabase
