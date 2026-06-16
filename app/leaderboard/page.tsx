@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 
 const RANK_STYLE: Record<number, string> = {
   0: 'text-[#B8860B]', // gold
@@ -7,6 +7,7 @@ const RANK_STYLE: Record<number, string> = {
 }
 
 export default async function LeaderboardPage() {
+  const supabase = await createClient()
   const [{ data: users }, { data: settledWagers }] = await Promise.all([
     supabase.from('users').select('id, email, points, bet_pnl'),
     supabase.from('wagers').select('user_id').eq('settled', true),

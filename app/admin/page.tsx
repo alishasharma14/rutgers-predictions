@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { resolveMarket } from './actions'
 
 export default async function AdminPage() {
+  const supabase = await createClient()
   const { data: markets } = await supabase
     .from('markets')
     .select('id, question, category, status, resolution, wagers(choice, amount)')

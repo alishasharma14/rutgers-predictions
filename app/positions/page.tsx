@@ -1,15 +1,17 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import PositionsView from '../components/PositionsView'
-
-const PLACEHOLDER_USER_ID = '00000000-0000-0000-0000-000000000001'
 
 type Market = { question: string; status: string; resolution: string | null }
 
 export default async function PositionsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
   const { data: wagers } = await supabase
     .from('wagers')
     .select('id, choice, amount, settled, payout, markets(question, status, resolution)')
-    .eq('user_id', PLACEHOLDER_USER_ID)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   const positions = (wagers ?? []).map(w => {

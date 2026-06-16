@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { useToast } from './ToastProvider'
-import { useUser, PLACEHOLDER_USER_ID } from '@/app/context/UserContext'
+import { useUser } from '@/app/context/UserContext'
+
+const supabase = createClient()
 
 const BADGE: Record<string, { bg: string; color: string }> = {
   Football:   { bg: '#FAECE7', color: '#993C1D' },
@@ -66,7 +68,7 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
   const [loadingComments, setLoadingComments] = useState(false)
 
   const { addToast } = useToast()
-  const { points, deductPoints, incrementBets } = useUser()
+  const { userId, points, deductPoints, incrementBets } = useUser()
 
   // ── Bet logic ─────────────────────────────────────────
   function toggleSelect(dir: 'YES' | 'NO') {
@@ -85,10 +87,10 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
   }
 
   async function confirmBet() {
-    if (!selected || amount <= 0 || amount > points || expired) return
+    if (!selected || amount <= 0 || amount > points || expired || !userId) return
     setLoading(true)
     const { error } = await supabase.from('wagers').insert({
-      user_id: PLACEHOLDER_USER_ID,
+      user_id: userId,
       market_id: id,
       choice: selected,
       amount,
@@ -123,11 +125,11 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
 
   async function postComment() {
     const text = commentText.trim()
-    if (!text) return
+    if (!text || !userId) return
     setPosting(true)
     const { data, error } = await supabase
       .from('comments')
-      .insert({ market_id: id, user_id: PLACEHOLDER_USER_ID, text })
+      .insert({ market_id: id, user_id: userId, text })
       .select('id, text, created_at')
       .single()
     setPosting(false)

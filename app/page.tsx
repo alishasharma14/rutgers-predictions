@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import HeroBar from './components/HeroBar'
 import DailyBanner from './components/DailyBanner'
 import MarketsView from './components/MarketsView'
@@ -6,6 +6,7 @@ import MarketsView from './components/MarketsView'
 type Wager = { choice: string; amount: number }
 
 export default async function Home() {
+  const supabase = await createClient()
   const { data: markets } = await supabase
     .from('markets')
     .select('id, question, category, closes_at, is_live, wagers(choice, amount)')

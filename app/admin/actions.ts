@@ -1,9 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 
 export async function resolveMarket(marketId: string, resolution: 'YES' | 'NO') {
+  const supabase = await createClient()
   const { data: market } = await supabase
     .from('markets')
     .select('id, status')

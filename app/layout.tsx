@@ -4,6 +4,8 @@ import { ToastProvider } from './components/ToastProvider'
 import { UserProvider } from './context/UserContext'
 import NavPoints from './components/NavPoints'
 import PageTabs from './components/PageTabs'
+import { createClient } from '@/lib/supabase/server'
+import { logout } from './login/actions'
 import './globals.css'
 
 const dmSans = DM_Sans({
@@ -24,7 +26,11 @@ export const metadata: Metadata = {
   description: 'University Picks — Rutgers Virtual Prediction Market',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const initial = user?.email ? user.email[0].toUpperCase() : 'RU'
+
   return (
     <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
       <body className="min-h-screen bg-surface text-foreground">
@@ -43,18 +49,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
 
-                {/* Right: live points pill + avatar */}
+                {/* Right: live points pill + avatar + logout */}
                 <div className="flex items-center gap-3">
-                  <NavPoints />
-                  <div className="w-[30px] h-[30px] rounded-full bg-scarlet flex items-center justify-center text-white text-[11px] font-semibold shrink-0">
-                    RU
-                  </div>
+                  {user && <NavPoints />}
+                  {user && (
+                    <div className="w-[30px] h-[30px] rounded-full bg-scarlet flex items-center justify-center text-white text-[11px] font-semibold shrink-0">
+                      {initial}
+                    </div>
+                  )}
+                  {user && (
+                    <form action={logout}>
+                      <button className="text-[12px] text-white/60 hover:text-white transition-colors">
+                        Log out
+                      </button>
+                    </form>
+                  )}
                 </div>
               </div>
             </nav>
 
             <main className="max-w-3xl mx-auto px-4 pt-6 pb-10">
-              <PageTabs />
+              {user && <PageTabs />}
               {children}
             </main>
           </ToastProvider>

@@ -33,8 +33,11 @@ app/
   admin/
     page.tsx                     # lists open/closed markets, resolve YES/NO
     actions.ts                    # resolveMarket server action — settles wagers, pays out
-  layout.tsx                    # nav, fonts, UserProvider/ToastProvider
-  context/UserContext.tsx        # client-side points/bets/P&L state, synced to Supabase
+  login/
+    page.tsx                      # login/signup form, gated to @rutgers.edu
+    actions.ts                     # login/signup/logout server actions
+  layout.tsx                    # nav, fonts, UserProvider/ToastProvider, server-side auth check
+  context/UserContext.tsx        # client-side userId/points/bets/P&L state, synced to Supabase
   components/
     MarketsView.tsx            # category filter + market grid (client)
     MarketCard.tsx               # odds, bet panel, comments, live/closing badges (client)
@@ -44,7 +47,11 @@ app/
     NavPoints.tsx                        # live points pill in nav
     PageTabs.tsx                          # tab-style nav between the three routes
     ToastProvider.tsx                      # toast notifications
-lib/supabase.ts                # shared Supabase client
+lib/supabase/
+  client.ts                    # browser Supabase client (@supabase/ssr)
+  server.ts                    # server Supabase client, reads/writes the session cookie
+  proxy.ts                      # session-refresh + auth-redirect logic, used by proxy.ts
+proxy.ts                       # this Next.js version's renamed middleware.ts — runs updateSession on every request
 ```
 
 ## Local setup
@@ -123,31 +130,40 @@ create policy "public read wagers" on wagers for select using (true);
 create policy "public read users" on users for select using (true);
 create policy "public read comments" on comments for select using (true);
 
-create policy "public insert wagers" on wagers for insert with check (true);
-create policy "public insert comments" on comments for insert with check (true);
-create policy "public update users" on users for update using (true) with check (true);
+create policy "users insert own wagers" on wagers for insert with check (auth.uid() = user_id);
+create policy "users insert own comments" on comments for insert with check (auth.uid() = user_id);
+create policy "users update own row" on users for update using (auth.uid() = id) with check (auth.uid() = id);
 create policy "public update markets" on markets for update using (true);
 create policy "public update wagers" on wagers for update using (true);
 ```
 
-### 5. Seed data
+`markets`/`wagers` updates stay open (`using (true)`) since settlement runs through the `/admin` server action, not a per-user check — there's no admin role column yet, so anyone signed in can currently resolve markets.
 
-`users.id` has a foreign key to `auth.users(id)`, so the placeholder user must exist in `auth.users` first:
+### 5. Auth trigger
+
+`users` rows are no longer seeded by hand — signing up through Supabase Auth (gated to `@rutgers.edu` in the app) creates the `auth.users` row, and this trigger mirrors it into `public.users`:
 
 ```sql
-insert into auth.users (
-  id, instance_id, aud, role, email,
-  encrypted_password, email_confirmed_at, created_at, updated_at
-) values (
-  '00000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated', 'authenticated', 'placeholder@rutgers.edu',
-  '', now(), now(), now()
-);
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  if new.email not like '%@rutgers.edu' then
+    raise exception 'Only @rutgers.edu emails are allowed';
+  end if;
+  insert into public.users (id, email, points, bet_pnl)
+  values (new.id, new.email, 1000, 0);
+  return new;
+end;
+$$ language plpgsql security definer;
 
-insert into users (id, email, points) values
-  ('00000000-0000-0000-0000-000000000001', 'placeholder@rutgers.edu', 1000);
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+```
 
+Markets are still seeded directly via SQL, e.g.:
+
+```sql
 insert into markets (question, category, closes_at, is_live) values
   ('Will Rutgers football beat Penn State?', 'Football', now() + interval '4 days', false),
   ('Will the dining hall bring back Wednesday wings?', 'Campus', now() + interval '14 days', false);
@@ -159,17 +175,18 @@ insert into markets (question, category, closes_at, is_live) values
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The admin tool for resolving markets lives at [http://localhost:3000/admin](http://localhost:3000/admin) — it's not linked in the nav since there's no auth gating it yet.
+Open [http://localhost:3000](http://localhost:3000) and sign up with a `@rutgers.edu` email. The admin tool for resolving markets lives at [http://localhost:3000/admin](http://localhost:3000/admin) — it's not linked in the nav, and any signed-in user can currently reach it since there's no admin role yet.
 
 ## Current state
 
-- No authentication yet — every request acts as a single hardcoded `PLACEHOLDER_USER_ID`.
+- **Auth is live** — Supabase email/password auth gated to `@rutgers.edu` (checked client-side, server-side, and in the `handle_new_user` trigger). `proxy.ts` (this Next.js version's renamed `middleware.ts`) redirects signed-out requests to `/login` and refreshes the session cookie on every request.
+- Every wager, comment, points balance, and P&L figure is now scoped to the real authenticated user (`auth.uid()`) instead of a hardcoded placeholder.
 - Market resolution and settlement are live via `/admin`: closing a market pays out every wager based on its locked-in odds and updates `users.points` / `users.bet_pnl`.
 - Markets support `closes_at` (countdown badge, blocks new bets once passed) and `is_live` (pulsing LIVE badge), but nothing currently enforces auto-closing — an admin still has to resolve manually.
-- Comments are open to anyone; no gating by wager status.
+- Comments are open to any signed-in user; no gating by wager status.
 
 ## Roadmap
 
-- **Auth** — Supabase email auth restricted to `@rutgers.edu`, a trigger to auto-create the matching `public.users` row, swap `PLACEHOLDER_USER_ID` for `auth.uid()`, and gate `/admin` behind it.
+- **Admin role** — right now `/admin` is reachable by any signed-in user; add an `is_admin` flag on `users` and gate the route/server action behind it.
 - **Market creation UI** — right now markets are only added via SQL; an authenticated admin form would replace that.
-- **Comment moderation** — `chat_mode` per market (`public` | `gated` until a bet is placed), a `hidden` flag on comments, YES/NO position tags on comments once auth lands.
+- **Comment moderation** — `chat_mode` per market (`public` | `gated` until a bet is placed), a `hidden` flag on comments, YES/NO position tags on comments.
