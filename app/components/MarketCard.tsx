@@ -28,6 +28,15 @@ function timeAgo(ts: string) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+function closesIn(ts: string) {
+  const diff = new Date(ts).getTime() - Date.now()
+  if (diff <= 0) return null
+  const h = Math.floor(diff / 3600000)
+  if (h < 1) return 'Closes in <1h'
+  if (h < 24) return `Closes in ${h}h`
+  return `Closes in ${Math.ceil(h / 24)}d`
+}
+
 type Comment = { id: string; text: string; created_at: string }
 
 type Props = {
@@ -37,9 +46,13 @@ type Props = {
   yesPct: number
   noPct: number
   volume: number
+  closesAt: string | null
+  isLive: boolean
 }
 
-export default function MarketCard({ id, question, category, yesPct, noPct, volume }: Props) {
+export default function MarketCard({ id, question, category, yesPct, noPct, volume, closesAt, isLive }: Props) {
+  const expired = closesAt ? new Date(closesAt).getTime() <= Date.now() : false
+  const closesLabel = closesAt ? closesIn(closesAt) : null
   // Bet state
   const [selected, setSelected] = useState<'YES' | 'NO' | null>(null)
   const [amount, setAmount] = useState(50)
@@ -57,6 +70,7 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
 
   // ── Bet logic ─────────────────────────────────────────
   function toggleSelect(dir: 'YES' | 'NO') {
+    if (expired) return
     setSelected(prev => (prev === dir ? null : dir))
   }
 
@@ -71,7 +85,7 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
   }
 
   async function confirmBet() {
-    if (!selected || amount <= 0 || amount > points) return
+    if (!selected || amount <= 0 || amount > points || expired) return
     setLoading(true)
     const { error } = await supabase.from('wagers').insert({
       user_id: PLACEHOLDER_USER_ID,
@@ -133,23 +147,35 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
 
       {/* ── Body ── */}
       <div className="p-4 pb-3">
-        <div className="mb-2">
+        <div className="mb-2 flex items-center gap-1.5">
           <span
             className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider"
             style={{ background: badge.bg, color: badge.color }}
           >
             {category}
           </span>
+          {isLive && !expired && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1" style={{ background: '#FAECE7', color: '#C0390B' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-no" />
+              Live
+            </span>
+          )}
+          {expired ? (
+            <span className="text-[10px] text-faint font-medium">Betting closed</span>
+          ) : closesLabel ? (
+            <span className="text-[10px] text-faint font-medium">{closesLabel}</span>
+          ) : null}
         </div>
 
         <p className="text-[15px] font-medium leading-snug mb-3">{question}</p>
 
         {/* Odds cards */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className={`grid grid-cols-2 gap-2 mb-3 ${expired ? 'opacity-50' : ''}`}>
           <button
             onClick={() => toggleSelect('YES')}
+            disabled={expired}
             style={{ background: '#E1F5EE' }}
-            className={`rounded-lg p-3 text-left border-2 transition-all ${
+            className={`rounded-lg p-3 text-left border-2 transition-all ${expired ? 'cursor-not-allowed' : ''} ${
               selected === 'YES'
                 ? 'border-yes shadow-[0_0_0_3px_rgba(29,158,117,0.15)]'
                 : 'border-transparent hover:border-yes/50'
@@ -161,8 +187,9 @@ export default function MarketCard({ id, question, category, yesPct, noPct, volu
 
           <button
             onClick={() => toggleSelect('NO')}
+            disabled={expired}
             style={{ background: '#FAECE7' }}
-            className={`rounded-lg p-3 text-left border-2 transition-all ${
+            className={`rounded-lg p-3 text-left border-2 transition-all ${expired ? 'cursor-not-allowed' : ''} ${
               selected === 'NO'
                 ? 'border-no shadow-[0_0_0_3px_rgba(192,57,11,0.15)]'
                 : 'border-transparent hover:border-no/50'

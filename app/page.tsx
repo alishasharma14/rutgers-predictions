@@ -8,7 +8,7 @@ type Wager = { choice: string; amount: number }
 export default async function Home() {
   const { data: markets } = await supabase
     .from('markets')
-    .select('id, question, category, wagers(choice, amount)')
+    .select('id, question, category, closes_at, is_live, wagers(choice, amount)')
     .eq('status', 'open')
     .order('created_at', { ascending: false })
 
@@ -25,6 +25,8 @@ export default async function Home() {
       yesPct,
       noPct: 100 - yesPct,
       volume,
+      closesAt: m.closes_at,
+      isLive: m.is_live,
     }
   })
 

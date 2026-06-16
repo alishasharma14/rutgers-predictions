@@ -12,6 +12,8 @@ type Market = {
   yesPct: number
   noPct: number
   volume: number
+  closesAt: string | null
+  isLive: boolean
 }
 
 export default function MarketsView({ markets }: { markets: Market[] }) {
