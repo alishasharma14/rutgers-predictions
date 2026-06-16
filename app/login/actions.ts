@@ -3,9 +3,12 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
+const RUTGERS_DOMAINS = ['@rutgers.edu', '@scarletmail.rutgers.edu']
+
 function validateRutgersEmail(email: string): string | null {
-  if (!email.toLowerCase().endsWith('@rutgers.edu')) {
-    return 'Use your @rutgers.edu email.'
+  const lower = email.toLowerCase()
+  if (!RUTGERS_DOMAINS.some(domain => lower.endsWith(domain))) {
+    return 'Use your @rutgers.edu or @scarletmail.rutgers.edu email.'
   }
   return null
 }
