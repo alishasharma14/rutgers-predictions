@@ -1,8 +1,22 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { resolveMarket } from './actions'
+import { resolveMarket, createMarket } from './actions'
+
+const CATEGORIES = ['Football', 'Basketball', 'Wrestling', 'Campus']
 
 export default async function AdminPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.is_admin) redirect('/')
+
   const { data: markets } = await supabase
     .from('markets')
     .select('id, question, category, status, resolution, wagers(choice, amount)')
@@ -12,7 +26,57 @@ export default async function AdminPage() {
   const closed = (markets ?? []).filter(m => m.status !== 'open')
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
+
+      {/* ── Create market ── */}
+      <div>
+        <h1 className="text-base font-semibold mb-3">Create market</h1>
+        <div className="bg-white border border-black/8 rounded-xl p-4">
+          <form action={createMarket} className="flex flex-col gap-3">
+            <div>
+              <label className="text-[12px] text-muted block mb-1">Question</label>
+              <input
+                name="question"
+                required
+                placeholder="Will Rutgers beat Penn State?"
+                className="w-full border border-black/14 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-scarlet"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] text-muted block mb-1">Category</label>
+                <select
+                  name="category"
+                  required
+                  className="w-full border border-black/14 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-scarlet"
+                >
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[12px] text-muted block mb-1">Closes at (optional)</label>
+                <input
+                  name="closes_at"
+                  type="datetime-local"
+                  className="w-full border border-black/14 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-scarlet"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" name="is_live" id="is_live" className="accent-scarlet" />
+              <label htmlFor="is_live" className="text-[13px] text-muted cursor-pointer">Mark as Live</label>
+            </div>
+            <button
+              type="submit"
+              className="self-start px-4 py-1.5 rounded-full bg-scarlet text-white text-[13px] font-medium hover:bg-scarlet-dark transition-colors"
+            >
+              Create
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* ── Open markets ── */}
       <div>
         <h1 className="text-base font-semibold mb-3">Open markets</h1>
         {open.length === 0 ? (
@@ -23,7 +87,7 @@ export default async function AdminPage() {
               type W = { choice: string; amount: number }
               const wagers = (m.wagers as W[]) ?? []
               const yesAmt = wagers.filter(w => w.choice === 'YES').reduce((s, w) => s + w.amount, 0)
-              const noAmt = wagers.filter(w => w.choice === 'NO').reduce((s, w) => s + w.amount, 0)
+              const noAmt  = wagers.filter(w => w.choice === 'NO').reduce((s, w) => s + w.amount, 0)
 
               return (
                 <div
@@ -55,6 +119,7 @@ export default async function AdminPage() {
         )}
       </div>
 
+      {/* ── Closed markets ── */}
       <div>
         <h1 className="text-base font-semibold mb-3">Closed markets</h1>
         {closed.length === 0 ? (
@@ -75,6 +140,7 @@ export default async function AdminPage() {
           </div>
         )}
       </div>
+
     </div>
   )
 }

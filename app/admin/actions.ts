@@ -1,10 +1,29 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export async function resolveMarket(marketId: string, resolution: 'YES' | 'NO') {
+const CATEGORIES = ['Football', 'Basketball', 'Wrestling', 'Campus'] as const
+
+async function requireAdmin() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data } = await supabase
+    .from('users')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!data?.is_admin) redirect('/')
+  return supabase
+}
+
+export async function resolveMarket(marketId: string, resolution: 'YES' | 'NO') {
+  const supabase = await requireAdmin()
+
   const { data: market } = await supabase
     .from('markets')
     .select('id, status')
@@ -53,4 +72,25 @@ export async function resolveMarket(marketId: string, resolution: 'YES' | 'NO') 
   revalidatePath('/')
   revalidatePath('/leaderboard')
   revalidatePath('/positions')
+}
+
+export async function createMarket(formData: FormData) {
+  const supabase = await requireAdmin()
+
+  const question = String(formData.get('question') ?? '').trim()
+  const category = String(formData.get('category') ?? '')
+  const closesAt = String(formData.get('closes_at') ?? '').trim()
+  const isLive = formData.get('is_live') === 'on'
+
+  if (!question || !CATEGORIES.includes(category as typeof CATEGORIES[number])) return
+
+  await supabase.from('markets').insert({
+    question,
+    category,
+    closes_at: closesAt || null,
+    is_live: isLive,
+  })
+
+  revalidatePath('/admin')
+  revalidatePath('/')
 }
